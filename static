@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VIGIL — Intelligence Analysis</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root{
+  /* Light theme (default) */
+  --bg:#f4f6f8; --bg-alt:#ffffff; --panel:#ffffff; --panel2:#f2f5f7; --panel3:#eaeef1;
+  --border:#dde3e8; --border-soft:#e6eaed;
+  --text:#1b232a; --text-strong:#0d1319; --muted:#69747d;
+  --teal:#0e8a78; --teal-soft:#0b6f60; --amber:#a5701c; --red:#c1424b; --blue:#3f74a8;
+  --white:#ffffff; --ink:#0b1016;
+  --scroll-thumb:#c7cfd5; --scroll-thumb-hover:#adb7bf; --scroll-track:#eaeef1;
+  --input-bg:#ffffff; --overlay:rgba(20,26,32,.45); --shadow:rgba(20,26,32,.12);
+  --primary-bg:#0e8a78; --primary-border:#0b6f60; --primary-text:#ffffff;
+  --ok-bg:#e9f7f3; --ok-border:#a9d9cd; --ok-text:#0b6f60;
+  --warn-bg:#fbf1e3; --warn-border:#e9c78e; --warn-text:#8a5a12;
+  --danger-bg:#fbeaec; --danger-border:#e6aab0; --danger-text:#a5313a;
+  --mono:"IBM Plex Mono",Consolas,monospace;
+}
+[data-theme="dark"]{
+  --bg:#0b1016; --bg-alt:#0d1319; --panel:#111820; --panel2:#10171e; --panel3:#0f161d;
+  --border:#283541; --border-soft:#202b34;
+  --text:#e4e9ee; --text-strong:#e8edef; --muted:#8c9aa8;
+  --teal:#48c5b3; --teal-soft:#347e74; --amber:#efb052; --red:#e15b62; --blue:#71a8d6;
+  --white:#f3f5f7; --ink:#0b1016;
+  --scroll-thumb:#46535e; --scroll-thumb-hover:#60707c; --scroll-track:#0f161d;
+  --input-bg:#0d141a; --overlay:rgba(5,8,11,.78); --shadow:rgba(0,0,0,.4);
+  --primary-bg:#15312f; --primary-border:#347e74; --primary-text:#d9f5ef;
+  --ok-bg:#10211f; --ok-border:#356b63; --ok-text:#a8e6dd;
+  --warn-bg:#241c10; --warn-border:#6f4b27; --warn-text:#efbd74;
+  --danger-bg:#241315; --danger-border:#704247; --danger-text:#ef8c93;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:13px Inter,Arial,sans-serif;height:100vh;overflow:hidden;transition:background .15s,color .15s}
+button,input,select{font:inherit}.app{height:100vh;display:flex;flex-direction:column}
+.top{height:64px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg-alt)}
+.brand{display:flex;align-items:center;gap:12px}.mark{width:30px;height:30px;border:1px solid var(--border);border-radius:4px;display:grid;place-items:center;font-weight:800;color:var(--text-strong);background:var(--panel2)}.brand b{font-size:18px;letter-spacing:.7px}.brand small{display:block;color:var(--muted);font:10px var(--mono);letter-spacing:1.5px;margin-top:2px}
+.top-right{display:flex;align-items:center;gap:18px}
+.stats{display:flex;gap:20px}.stat{text-align:right}.stat b{font:600 16px var(--mono)}.stat span{display:block;color:var(--muted);font-size:9px;letter-spacing:1px;text-transform:uppercase}
+.theme-toggle{width:34px;height:34px;border:1px solid var(--border);background:var(--panel2);color:var(--text);border-radius:7px;cursor:pointer;font-size:14px;display:grid;place-items:center}
+.theme-toggle:hover{border-color:var(--teal-soft)}
+.main{min-height:0;flex:1;display:grid;grid-template-columns:280px minmax(0,1fr) 360px}
+.left,.right{background:var(--panel)}.left{border-right:1px solid var(--border);overflow:auto;display:flex;flex-direction:column;min-height:100%}.right{border-left:1px solid var(--border);display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden}
+.section{padding:16px 16px;border-bottom:1px solid var(--border)}.section h3{margin:0 0 12px;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}.muted{color:var(--muted)}
+.case-id{font:600 18px var(--mono);margin-bottom:4px}.status{font-size:10px;color:var(--amber);border:1px solid var(--warn-border);padding:4px 7px;display:inline-block;border-radius:3px}
+.source-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.source{border:1px solid var(--border);padding:7px 8px;background:var(--panel3)}.source b{font:600 11px var(--mono)}.source span{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.primary{width:100%;border:1px solid var(--primary-border);background:var(--primary-bg);color:var(--primary-text);padding:10px 12px;border-radius:4px;cursor:pointer;font-weight:700}.secondary{width:100%;border:1px solid var(--border);background:transparent;color:var(--text);padding:9px 12px;border-radius:4px;cursor:pointer;margin-top:8px}
+.pipeline{display:grid;gap:7px}.pipe{border:1px solid var(--border);background:var(--panel2);padding:10px;display:flex;gap:9px;align-items:center}.pipe.done{border-color:var(--teal-soft)}.pipe .n{font:600 11px var(--mono);width:20px;height:20px;border:1px solid var(--border);border-radius:50%;display:grid;place-items:center;color:var(--muted)}.pipe.done .n{color:var(--teal);border-color:var(--teal)}.pipe b{font-size:11px}.pipe small{display:block;color:var(--muted);font-size:9.5px;margin-top:2px}
+.center{position:relative;min-width:0;background:var(--bg)}.toolbar{height:50px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--bg-alt)}.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{font-size:9.5px;color:var(--muted);border:1px solid var(--border);padding:5px 8px;border-radius:3px}.chip.sel{border-color:var(--teal-soft);color:var(--text-strong);background:var(--panel2)}
+.toolbar-right{display:flex;gap:7px}.mini{border:1px solid var(--border);background:var(--panel2);color:var(--muted);padding:5px 8px;border-radius:3px;cursor:pointer;font-size:10px}.mini.active{border-color:var(--teal-soft);color:var(--teal)}
+.graph-wrap{height:calc(100% - 96px);position:relative}.empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted)}.empty b{color:var(--text-strong);display:block;font-size:14px;margin-bottom:6px}.legend{position:absolute;bottom:12px;left:14px;right:14px;display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:9px}.legend span{margin-right:3px}
+.tabs{height:48px;display:flex;border-bottom:1px solid var(--border);flex:none}.tab{flex:1;display:grid;place-items:center;color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent}.tab.active{color:var(--text-strong);border-bottom-color:var(--teal)}.tab-panel{display:none;min-height:0;flex:1;overflow:hidden}.tab-panel.active{display:block}.scroll{height:100%;max-height:100%;overflow-y:auto;overflow-x:hidden;padding-bottom:28px;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--scroll-track);overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{width:7px}
+.scroll::-webkit-scrollbar-track{background:var(--scroll-track)}
+.scroll::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:5px}
+.scroll::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
+
+.panel{padding:15px 16px;border-bottom:1px solid var(--border)}.panel h2{font-size:14px;margin:0 0 4px}.kicker{font:10px var(--mono);text-transform:uppercase;color:var(--muted);letter-spacing:1px}.value{font:600 23px var(--mono);margin-top:4px}
+.row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-soft);font-size:10px}.row:last-child{border-bottom:0}.row .v{font-family:var(--mono);color:var(--text-strong);text-align:right}
+.badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.badge{font:9px var(--mono);border:1px solid var(--border);padding:4px 6px;color:var(--muted)}.badge.ok{border-color:var(--ok-border);color:var(--ok-text)}.badge.warn{border-color:var(--warn-border);color:var(--warn-text)}.badge.red{border-color:var(--danger-border);color:var(--danger-text)}
+.alert{border:1px solid var(--border);padding:11px 12px;margin:10px 0;background:var(--panel2);cursor:pointer}.alert.lead{border-left:3px solid var(--amber)}.alert.caution{border-left:3px solid var(--red)}.alert .title{font-weight:700;font-size:11px}.alert .meta{color:var(--muted);font:9px var(--mono);margin-top:4px}.alert p{margin:7px 0 0;color:var(--muted);font-size:10px;line-height:1.5}
+.person-rank{padding:11px 12px;border:1px solid var(--border);margin:9px 0;background:var(--panel2);cursor:pointer}.rankline{display:flex;justify-content:space-between;font:9px var(--mono);color:var(--muted)}.person-rank h4{margin:8px 0 5px;font-size:13px}.person-rank p{margin:0;color:var(--muted);font-size:10px;line-height:1.45}.bar{height:4px;background:var(--panel3);margin-top:8px}.bar i{display:block;height:100%;background:var(--teal)}
+.audit-ok{border:1px solid var(--ok-border);background:var(--ok-bg);color:var(--ok-text);padding:8px;font:10px var(--mono);margin-top:9px}
+.security-list{display:grid;gap:6px}.security-line{display:flex;justify-content:space-between;font-size:10px}.security-line span:last-child{font:10px var(--mono)}.true{color:var(--teal)}.false{color:var(--muted)}
+.login-overlay{position:fixed;inset:0;background:var(--overlay);backdrop-filter:blur(3px);display:none;place-items:center;z-index:50}.login{width:350px;background:var(--panel);border:1px solid var(--border);padding:22px;border-radius:6px}.login h2{margin:0 0 4px}.login p{color:var(--muted);font-size:11px;line-height:1.5}.login input{width:100%;margin:6px 0;padding:9px;background:var(--input-bg);border:1px solid var(--border);color:var(--text);border-radius:3px}.error{color:var(--danger-text);font-size:10px;min-height:14px}
+@media(max-width:1000px){.main{grid-template-columns:240px minmax(0,1fr)}.right{display:none}}@media(max-width:720px){.main{grid-template-columns:1fr}.left{display:none}.stats{gap:8px}.stat:nth-child(n+4){display:none}}
+.case-select{background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:3px}
+.factor-block{padding:0 0 4px}.factor-row{margin-bottom:8px}.factor-head{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:3px}.factor-track{height:4px;background:var(--panel3);border-radius:2px;overflow:hidden}.factor-fill{height:100%}
+.timeline-item{padding:10px 16px;border-bottom:1px solid var(--border-soft);font-size:10.5px}.timeline-time{font:9px var(--mono);color:var(--muted);margin-bottom:3px}
+.ask-row{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);flex:none}.ask-row input{flex:1;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:3px;font-size:11px}.ask-row button{background:var(--teal);color:var(--ink);border:none;font-weight:700;padding:0 14px;border-radius:3px;cursor:pointer}
+.ask-answer{margin:0 12px 10px;padding:9px 10px;border-radius:4px;background:var(--ok-bg);border:1px solid var(--ok-border);font-size:10.5px;line-height:1.5;color:var(--ok-text)}
+.modal-backdrop{position:fixed;inset:0;background:var(--overlay);z-index:60;display:flex;align-items:center;justify-content:center}
+.modal-box{width:520px;max-height:70vh;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:5px}
+.modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-weight:700}
+.modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer}
+.modal-item{padding:11px 16px;border-bottom:1px solid var(--border-soft);font-size:11px}
+.modal-item .meta{color:var(--muted);font-size:10px;margin-top:3px}
+
+.body-wrap{flex:1;min-height:0;display:flex}
+.rail{flex:none;width:76px;background:var(--bg-alt);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:10px 0}
+.rail-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;cursor:pointer;color:var(--muted);border-left:3px solid transparent}
+.rail-item .rail-icon{font-size:18px;line-height:1}
+.rail-item .rail-label{font-size:8.5px;letter-spacing:.3px;text-align:center;line-height:1.2}
+.rail-item.active{color:var(--text-strong);border-left-color:var(--teal);background:var(--panel2)}
+.rail-item:hover{color:var(--text-strong)}
+.view-wrap{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+.view{display:none;flex:1;min-height:0;overflow:auto}
+.view.active{display:flex;flex-direction:column}
+.view-scroll{padding:22px 24px;max-width:900px;width:100%}
+.case-mgmt-card{border:1px solid var(--border);background:var(--panel2);padding:14px 16px;margin-bottom:12px;border-radius:4px}
+.case-mgmt-card h2{margin:6px 0 4px;font-size:15px}
+.audit-table{width:100%;border-collapse:collapse;font-size:10.5px}
+.audit-table th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-size:9.5px;letter-spacing:.5px;text-transform:uppercase}
+.audit-table td{padding:6px 8px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+.gated{color:var(--muted);font-size:11px;line-height:1.6}
+@media(max-width:720px){.rail{width:56px}.rail-label{display:none}}
+
+.rail-user{margin-top:auto;padding:14px 0 16px;display:flex;justify-content:center;position:relative;cursor:pointer}
+.rail-user .user-avatar{width:34px;height:34px;border-radius:50%;background:var(--teal);color:var(--ink);display:grid;place-items:center;font-weight:700;font-size:13px}
+.rail-user:hover .user-avatar{outline:2px solid var(--teal-soft);outline-offset:2px}
+.user-menu{display:none;position:absolute;left:calc(100% + 8px);bottom:0;width:190px;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px var(--shadow);overflow:hidden;z-index:20}
+.user-menu.open{display:block}
+.user-menu-header{padding:11px 12px;border-bottom:1px solid var(--border-soft)}
+.user-menu-header b{display:block;font-size:12px;color:var(--text-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-menu-header span{display:block;font-size:9px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;margin-top:2px}
+.user-menu-item{width:100%;text-align:left;background:none;border:none;color:var(--text);padding:10px 12px;font-size:11.5px;cursor:pointer;display:block}
+.user-menu-item:hover{background:var(--panel3)}
+.user-menu-item.danger{color:var(--danger-text)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark">V</div>
+      <div><b>VIGIL</b><small>INTELLIGENCE ANALYSIS PROTOTYPE</small></div>
+    </div>
+    <div class="top-right">
+      <div class="stats">
+        <div class="stat"><b id="sRecords">0</b><span>Records</span></div>
+        <div class="stat"><b id="sEntities">0</b><span>Entities</span></div>
+        <div class="stat"><b id="sLinks">0</b><span>Relationships</span></div>
+        <div class="stat"><b id="sVerified">0</b><span>Verified</span></div>
+        <div class="stat"><b id="sAlerts">0</b><span>Alerts</span></div>
+      </div>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Switch theme">🌙</button>
+    </div>
+  </header>
+
+  <div class="body-wrap">
+    <nav class="rail">
+      <div class="rail-item active" data-view="investigation" onclick="showView('investigation')">
+        <div class="rail-icon">🔍</div><div class="rail-label">Investigation</div>
+      </div>
+      <div class="rail-item" data-view="cases" onclick="showView('cases')">
+        <div class="rail-icon">📁</div><div class="rail-label">Case Management</div>
+      </div>
+      <div class="rail-item" data-view="audit" onclick="showView('audit')">
+        <div class="rail-icon">🛡️</div><div class="rail-label">Audit & Security</div>
+      </div>
+      <div class="rail-item" data-view="reports" onclick="showView('reports')">
+        <div class="rail-icon">📄</div><div class="rail-label">Reports</div>
+      </div>
+
+      <div class="rail-user" id="railUser" onclick="toggleUserMenu(event)">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div class="user-menu" id="userMenu">
+          <div class="user-menu-header">
+            <b id="userNameLabel">Not signed in</b>
+            <span id="userRoleLabel">Tap to sign in</span>
+          </div>
+          <button class="user-menu-item" onclick="event.stopPropagation();closeUserMenu();showLogin()">Switch user</button>
+          <button class="user-menu-item danger" id="logoutBtn" onclick="event.stopPropagation();logout()" style="display:none">Log out</button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="view-wrap">
+    <div class="view active" id="view-investigation">
+    <div class="main">
+    <aside class="left">
+      <div class="section">
+        <h3>Case overview</h3>
+        <select id="caseSelect" class="case-select" onchange="switchCase(this.value)" style="width:100%;margin-bottom:10px"></select>
+        <div class="case-id" id="caseId">VIGIL-DEMO-001</div>
+        <div class="muted" id="caseTitle">Multi-source intelligence demonstration</div>
+        <div style="margin-top:9px"><span class="status">● SYNTHETIC DATA</span></div>
+        <div class="source-grid" id="sourceGrid"></div>
+      </div>
+
+      <div class="section">
+        <h3>Investigation objective</h3>
+        <div class="muted" id="objective">Identify high-value network connectors, corroborate relationships, and flag unverified accusations.</div>
+        <button class="primary" style="margin-top:12px" onclick="runFullInvestigation()">▶ RUN FULL INVESTIGATION</button>
+        <button class="secondary" id="btnReport" onclick="generateReport()" disabled>⤓ Generate report</button>
+        <button class="secondary" onclick="resetCase()">Reset demo</button>
+      </div>
+
+      <div class="section">
+        <h3>Pipeline</h3>
+        <div class="pipeline">
+          <div class="pipe" id="p1"><div class="n">1</div><div><b>Ingest intelligence</b><small>FIR / CDR / Bank / Surveillance / Social</small></div></div>
+          <div class="pipe" id="p2"><div class="n">2</div><div><b>Extract entities</b><small>spaCy NER + domain rules</small></div></div>
+          <div class="pipe" id="p3"><div class="n">3</div><div><b>Build & analyze network</b><small>NetworkX graph analytics</small></div></div>
+          <div class="pipe" id="p4"><div class="n">4</div><div><b>Review findings</b><small>Influencers + evidence + alerts</small></div></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="center">
+      <div class="toolbar">
+        <div class="chips">
+          <div class="chip sel" data-type="all" onclick="filterType('all')">ALL</div>
+          <div class="chip" data-type="person" onclick="filterType('person')">PERSON</div>
+          <div class="chip" data-type="phone" onclick="filterType('phone')">PHONE</div>
+          <div class="chip" data-type="vehicle" onclick="filterType('vehicle')">VEHICLE</div>
+          <div class="chip" data-type="location" onclick="filterType('location')">LOCATION</div>
+          <div class="chip" data-type="org" onclick="filterType('org')">ORG</div>
+        </div>
+        <div class="toolbar-right">
+          <button class="mini active" id="allLinks" onclick="filterLinks('all')">All links</button>
+          <button class="mini" id="verifiedLinks" onclick="filterLinks('verified')">Verified</button>
+          <button class="mini" id="singleLinks" onclick="filterLinks('single')">Single-source</button>
+        </div>
+      </div>
+      <div class="graph-wrap">
+        <div class="empty" id="empty">
+          <div><b>Investigation network not generated</b>Load the demo case and run the investigation.</div>
+        </div>
+        <svg id="graph" style="width:100%;height:100%;display:none"></svg>
+        <div class="legend">
+          <span>● node size = influence</span>
+          <span style="color:var(--teal)">━━ corroborated</span>
+          <span>┄┄ single-source</span>
+          <span style="color:var(--red)">◎ evidence caution</span>
+        </div>
+      </div>
+    </main>
+
+    <aside class="right">
+      <div class="tabs">
+        <div class="tab active" onclick="tab('inspect',this)">Inspector</div>
+        <div class="tab" onclick="tab('players',this)">Key players</div>
+        <div class="tab" onclick="tab('alerts',this)">Alerts</div>
+        <div class="tab" onclick="tab('timeline',this)">Timeline</div>
+      </div>
+
+      <div class="tab-panel active" id="inspect"><div class="scroll" id="inspectBody"></div></div>
+      <div class="tab-panel" id="players"><div class="scroll" id="playerBody"></div></div>
+      <div class="tab-panel" id="alerts"><div class="scroll" id="alertBody"></div></div>
+      <div class="tab-panel" id="timeline"><div class="scroll" id="timelineBody"></div></div>
+
+      <div class="ask-row">
+        <input id="askInput" placeholder="Ask e.g. 'who is connected to Sunil Yadav?'" onkeydown="if(event.key==='Enter')askQuestion()">
+        <button onclick="askQuestion()">Ask</button>
+      </div>
+    </aside>
+    </div>
+    </div>
+
+    <div class="view" id="view-cases">
+      <div class="scroll"><div class="view-scroll">
+        <div class="panel" style="border:1px solid var(--border);margin-bottom:16px">
+          <h3 style="margin:0 0 4px;font-size:13px">Cases</h3>
+          <div class="muted" style="font-size:11px;margin-bottom:12px">All cases available in this investigation environment.</div>
+          <div id="caseMgmtBody"><div class="muted">Loading cases…</div></div>
+        </div>
+        <div class="panel" style="border:1px solid var(--border)">
+          <h3 style="margin:0 0 4px;font-size:13px">⇄ Cross-case scan</h3>
+          <div class="muted" style="font-size:10.5px;margin-bottom:10px">Finds entities (phone numbers, names, vehicles…) shared between CASE-A and CASE-B.</div>
+          <button class="secondary" style="width:auto;padding:8px 14px" onclick="runCrossCaseScan()">⇄ Run cross-case scan</button>
+          <div id="crossCaseResults" style="margin-top:14px"></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="view" id="view-audit">
+      <div class="scroll"><div class="view-scroll">
+        <div class="panel" style="border:1px solid var(--border);margin-bottom:16px">
+          <h3 style="margin:0 0 10px;font-size:13px">Security status</h3>
+          <div class="security-list" id="auditSecurityList"></div>
+        </div>
+        <div class="panel" style="border:1px solid var(--border);margin-bottom:16px">
+          <h3 style="margin:0 0 10px;font-size:13px">Hash-chain verification</h3>
+          <button class="secondary" style="width:auto;padding:8px 14px" onclick="refreshAuditFull()">Re-verify chain</button>
+          <div id="auditVerifyBox" style="margin-top:10px"></div>
+        </div>
+        <div class="panel" style="border:1px solid var(--border);margin-bottom:16px">
+          <h3 style="margin:0 0 10px;font-size:13px">Audit log</h3>
+          <div id="auditTableBox" style="overflow-x:auto"></div>
+        </div>
+        <div class="panel" style="border:1px solid var(--border)">
+          <h3 style="margin:0 0 10px;font-size:13px">Encryption demo (Fernet)</h3>
+          <input id="encInput" placeholder="Type a value to encrypt…" style="width:100%;padding:8px;background:#0d141a;border:1px solid var(--border);color:var(--text);border-radius:3px;margin-bottom:8px">
+          <button class="secondary" style="width:auto;padding:7px 12px" onclick="runEncryptDemo()">Encrypt → Decrypt</button>
+          <div id="encryptDemoResult" style="margin-top:10px;font-size:10.5px;font-family:var(--mono);line-height:1.7"></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="view" id="view-reports">
+      <div class="scroll"><div class="view-scroll">
+        <div class="panel" style="border:1px solid var(--border);margin-bottom:16px">
+          <h3 style="margin:0 0 4px;font-size:13px">Generate report</h3>
+          <div class="muted" style="font-size:11px;margin-bottom:12px">Produces an audited investigation summary for the current case (<b id="reportCurrentCase" style="color:#d8e0e6"></b>) and opens a printable page.</div>
+          <button class="primary" style="width:auto;padding:10px 18px" id="btnReportView" onclick="generateReport()" disabled>⤓ Generate report for current case</button>
+        </div>
+        <div class="panel" style="border:1px solid var(--border)">
+          <h3 style="margin:0 0 4px;font-size:13px">Report history (this session)</h3>
+          <div class="muted" style="font-size:10px;margin-bottom:10px">Each entry reopens the exact data snapshot captured when that report was generated.</div>
+          <div id="reportHistoryBox"><div class="muted">No reports generated this session yet.</div></div>
+        </div>
+      </div></div>
+    </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="login-overlay" id="loginOverlay">
+  <div class="login">
+    <h2>VIGIL access</h2>
+    <p>Demo RBAC is enabled for the synthetic case. Use one of the provided demo accounts.</p>
+    <input id="username" placeholder="Username" value="investigator">
+    <input id="password" type="password" placeholder="Password" value="vigil123">
+    <div class="error" id="loginError"></div>
+    <button class="primary" onclick="login()">Sign in</button>
+  </div>
+</div>
+
+<script>
+const API="";
+let TOKEN="";
+let USER={username:"demo",role:"INVESTIGATOR",district:"Patna"};
+let RECORDS=[], DATA=null, selected=null, sim=null;
+let activeType="all", activeLink="all";
+let currentCaseId="CASE-A";
+
+const colors={person:"#48c5b3",location:"#efb052",phone:"#8fa7df",vehicle:"#df858c",org:"#d9dee3"};
+
+async function getJSON(url, options={}){
+  options.headers={...(options.headers||{}),...(TOKEN?{"Authorization":"Bearer "+TOKEN}:{})};
+  const r=await fetch(API+url, options);
+  if(!r.ok) throw new Error((await r.json().catch(()=>({detail:r.statusText}))).detail||r.statusText);
+  return r.json();
+}
+function setPipe(n,on=true){document.getElementById("p"+n).classList.toggle("done",on)}
+function fmtType(t){return ({person:"PERSON",location:"LOCATION",phone:"PHONE",vehicle:"VEHICLE",org:"ORG"}[t]||t).toUpperCase()}
+
+async function loadCases(){
+  try{
+    const d=await getJSON("/api/cases");
+    const sel=document.getElementById("caseSelect");
+    sel.innerHTML=d.cases.map(c=>`<option value="${c.id}">${c.label}</option>`).join("");
+    sel.value=currentCaseId;
+  }catch(e){}
+}
+async function switchCase(caseId){
+  currentCaseId=caseId;
+  resetCase();
+  setPipe(1,false);
+  viewsLoaded.cases=false;
+  await boot();
+}
+
+/* ---- Nav rail / view switching (frontend-only, no new routes) ---- */
+let viewsLoaded={cases:false};
+function showView(name){
+  document.querySelectorAll(".rail-item").forEach(x=>x.classList.toggle("active",x.dataset.view===name));
+  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id==="view-"+name));
+  if(name==="cases" && !viewsLoaded.cases){ viewsLoaded.cases=true; loadCaseManagement(); }
+  if(name==="audit"){ loadAuditView(); }
+  if(name==="reports"){ document.getElementById("reportCurrentCase").textContent=currentCaseId; renderReportHistory(); }
+}
+
+async function boot(){
+  await loadCases();
+  const summary=await getJSON("/api/case-summary?case_id="+encodeURIComponent(currentCaseId));
+  document.getElementById("caseId").textContent=summary.case_id;
+  document.getElementById("caseTitle").textContent=summary.title;
+  document.getElementById("objective").textContent=summary.objective;
+  const grid=document.getElementById("sourceGrid");
+  grid.innerHTML=Object.entries(summary.sources).map(([k,v])=>`<div class="source"><b>${k}</b><span>${v} records</span></div>`).join("");
+  RECORDS=(await getJSON("/api/sample-data?case_id="+encodeURIComponent(currentCaseId))).records;
+  setPipe(1);
+  document.getElementById("sRecords").textContent=RECORDS.length;
+  renderTimeline();
+  updateUserWidget();
+  await refreshAudit();
+}
+async function refreshAudit(){
+  try{
+    const v=await getJSON("/api/audit/verify");
+    const box=document.getElementById("auditBox");
+    if(box) box.innerHTML=`<div class="audit-ok">✓ HASH CHAIN ${v.valid?"VALID":"BROKEN"} · ${v.records_checked} EVENTS</div>`;
+  }catch(e){}
+  if(document.getElementById("view-audit")?.classList.contains("active")) refreshAuditFull();
+}
+async function login(){
+  const error=document.getElementById("loginError");
+  try{
+    const d=await getJSON("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username.value,password:password.value})});
+    TOKEN=d.token; USER=d.user; loginOverlay.style.display="none";
+    error.textContent="";
+    await boot();
+  }catch(e){error.textContent=e.message}
+}
+function showLogin(){document.getElementById("loginOverlay").style.display="grid"}
+
+/* ---- Logged-in user widget (bottom of left sidebar) ---- */
+function toggleUserMenu(e){
+  e.stopPropagation();
+  document.getElementById("userMenu").classList.toggle("open");
+}
+function closeUserMenu(){
+  document.getElementById("userMenu").classList.remove("open");
+}
+document.addEventListener("click",()=>{ const m=document.getElementById("userMenu"); if(m) m.classList.remove("open"); });
+function updateUserWidget(){
+  const signedIn=!!TOKEN;
+  document.getElementById("userAvatar").textContent=(USER.username||"?").charAt(0).toUpperCase();
+  document.getElementById("userNameLabel").textContent=signedIn?USER.username:"Not signed in";
+  document.getElementById("userRoleLabel").textContent=signedIn?USER.role:"Tap to sign in";
+  document.getElementById("logoutBtn").style.display=signedIn?"block":"none";
+}
+function logout(){
+  TOKEN="";
+  USER={username:"demo",role:"INVESTIGATOR",district:"Patna"};
+  updateUserWidget();
+  closeUserMenu();
+  refreshAudit();
+  if(document.getElementById("view-audit")?.classList.contains("active")) loadAuditView();
+}
+
+/* ---- Theme toggle (default light) ---- */
+function nodeTextColor(){
+  return (document.documentElement.getAttribute("data-theme")||"light")==="dark" ? "#cdd5dc" : "#141a1f";
+}
+function applyTheme(theme){
+  document.documentElement.setAttribute("data-theme",theme);
+  const btn=document.getElementById("themeToggle");
+  if(btn) btn.textContent=theme==="dark"?"☀️":"🌙";
+  try{ localStorage.setItem("vigil-theme",theme); }catch(e){}
+  if(typeof DATA!=="undefined" && DATA) renderGraph();
+}
+function toggleTheme(){
+  const current=document.documentElement.getAttribute("data-theme")||"light";
+  applyTheme(current==="dark"?"light":"dark");
+}
+(function initTheme(){
+  let saved="light";
+  try{ saved=localStorage.getItem("vigil-theme")||"light"; }catch(e){}
+  applyTheme(saved);
+})();
+
+async function runFullInvestigation(){
+  try{
+    setPipe(2,false);setPipe(3,false);setPipe(4,false);
+    const ext=await getJSON("/api/extract",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({records:RECORDS})});
+    document.getElementById("sEntities").textContent=Object.values(ext.entity_counts||{}).reduce((a,b)=>a+b,0);
+    setPipe(2);
+    DATA=await getJSON("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({records:RECORDS})});
+    setPipe(3);setPipe(4);
+    document.getElementById("sLinks").textContent=DATA.links.length;
+    document.getElementById("sAlerts").textContent=DATA.alerts.length;
+    document.getElementById("sVerified").textContent=DATA.links.filter(x=>x.confidence==="verified").length;
+    renderGraph();renderPlayers();renderAlerts();
+    setReportButtonEnabled(true);
+    tab("players",document.querySelectorAll(".tab")[1]);
+    await refreshAudit();
+  }catch(e){alert(e.message)}
+}
+function resetCase(){
+  DATA=null;selected=null;
+  document.getElementById("graph").style.display="none";
+  document.getElementById("empty").style.display="grid";
+  ["sEntities","sLinks","sVerified","sAlerts"].forEach(id=>document.getElementById(id).textContent="0");
+  ["2","3","4"].forEach(n=>setPipe(n,false));
+  document.getElementById("inspectBody").innerHTML='<div class="panel muted">Run the investigation, then select an entity in the network.</div>';
+  document.getElementById("playerBody").innerHTML="";
+  document.getElementById("alertBody").innerHTML="";
+  document.getElementById("timelineBody").innerHTML='<div class="panel muted">Run the investigation to see the chronological activity timeline.</div>';
+  setReportButtonEnabled(false);
+}
+function setReportButtonEnabled(on){
+  document.getElementById("btnReport").disabled=!on;
+  const rv=document.getElementById("btnReportView"); if(rv) rv.disabled=!on;
+}
+function tab(name,el){
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); if(el) el.classList.add("active");
+  document.querySelectorAll(".tab-panel").forEach(x=>x.classList.remove("active"));
+  document.getElementById(name).classList.add("active");
+}
+function filterType(type){
+  activeType=type;
+  document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("sel",x.dataset.type===type));
+  if(DATA) renderGraph();
+}
+function filterLinks(type){
+  activeLink=type;
+  document.querySelectorAll(".mini").forEach(x=>x.classList.remove("active"));
+  document.getElementById(type==="all"?"allLinks":type==="verified"?"verifiedLinks":"singleLinks").classList.add("active");
+  if(DATA) renderGraph();
+}
+function nodeVisible(n){
+  return activeType==="all" || n.type===activeType;
+}
+function linkVisible(l){
+  if(activeLink==="all") return true;
+  return activeLink==="verified" ? l.confidence==="verified" : l.confidence==="unverified";
+}
+function renderGraph(){
+  if(!DATA) return;
+  empty.style.display="none"; graph.style.display="block";
+  const svgEl=document.getElementById("graph"), width=svgEl.clientWidth, height=svgEl.clientHeight;
+  const svg=d3.select("#graph"); svg.selectAll("*").remove();
+  const defs=svg.append("defs");
+  const marker=defs.append("marker").attr("id","arrow").attr("viewBox","0 -5 10 10").attr("refX",14).attr("markerWidth",5).attr("markerHeight",5).attr("orient","auto");
+  marker.append("path").attr("d","M0,-5L10,0L0,5").attr("fill","#61717d");
+  const root=svg.append("g");
+  svg.call(d3.zoom().scaleExtent([0.35,3]).on("zoom",e=>root.attr("transform",e.transform)));
+  const nodes=DATA.nodes.map(d=>({...d})).filter(nodeVisible);
+  const allowed=new Set(nodes.map(n=>n.id));
+  const links=DATA.links.map(d=>({...d})).filter(l=>allowed.has(l.source)&&allowed.has(l.target)&&linkVisible(l));
+  sim?.stop();
+  sim=d3.forceSimulation(nodes)
+    .force("link",d3.forceLink(links).id(d=>d.id).distance(d=>105-Math.min(d.weight,12)*3).strength(.55))
+    .force("charge",d3.forceManyBody().strength(-280))
+    .force("center",d3.forceCenter(width/2,height/2))
+    .force("collision",d3.forceCollide().radius(d=>10+d.influence*20+5));
+  const link=root.append("g").selectAll("line").data(links).join("line")
+    .attr("stroke",d=>d.confidence==="verified"?"#48c5b3":"#52616d")
+    .attr("stroke-width",d=>Math.min(1.2+d.weight*.55,6))
+    .attr("stroke-dasharray",d=>d.confidence==="verified"?"0":"4,4")
+    .attr("opacity",.78);
+  const node=root.append("g").selectAll("g").data(nodes).join("g")
+    .style("cursor","pointer")
+    .call(d3.drag().on("start",(e,d)=>{if(!e.active)sim.alphaTarget(.25).restart();d.fx=d.x;d.fy=d.y})
+      .on("drag",(e,d)=>{d.fx=e.x;d.fy=e.y})
+      .on("end",(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}));
+  node.append("circle").attr("r",d=>8+d.influence*22)
+    .attr("fill",d=>colors[d.type]||"#d9dee3")
+    .attr("fill-opacity",d=>d.corroborated===false?.35:.9)
+    .attr("stroke",d=>d.corroborated===false?"#df5b63":d.is_bridge?"#efb052":"#0b1016")
+    .attr("stroke-width",d=>d.corroborated===false||d.is_bridge?2:1.3);
+  node.append("text").attr("dy",d=>-12-d.influence*10).attr("text-anchor","middle").attr("fill",nodeTextColor()).style("font-size","9px").text(d=>d.id);
+  node.on("click",(e,d)=>{selected=d;renderInspector(d);tab("inspect",document.querySelector(".tab"));});
+  sim.on("tick",()=>{
+    link.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
+    node.attr("transform",d=>`translate(${d.x},${d.y})`);
+  });
+}
+function renderInspector(d){
+  const conns=DATA.links.filter(l=>l.source.id===d.id||l.target.id===d.id||l.source===d.id||l.target===d.id);
+  const recs=DATA.records.filter(r=>d.records.includes(r.id));
+  const f=d.factors||{centrality_pct:0,betweenness_pct:0,source_diversity_pct:0};
+  const fbar=(label,val,color)=>`<div class="factor-row"><div class="factor-head"><span>${label}</span><span style="color:${color}">${val}%</span></div><div class="factor-track"><div class="factor-fill" style="width:${val}%;background:${color}"></div></div></div>`;
+  inspectBody.innerHTML=`
+    <div class="panel">
+      <div class="kicker">${fmtType(d.type)} · ${d.role}</div>
+      <h2>${esc(d.id)}</h2>
+      <div class="badges">${d.source_types.map(x=>`<span class="badge">${x}</span>`).join("")}</div>
+    </div>
+    <div class="panel">
+      <div class="row"><span>Influence</span><span class="v">${(d.influence*100).toFixed(0)} / 100</span></div>
+      <div class="row"><span>Direct connections</span><span class="v">${d.degree}</span></div>
+      <div class="row"><span>Betweenness</span><span class="v">${d.betweenness.toFixed(2)}</span></div>
+      <div class="row"><span>Community</span><span class="v">Cluster ${d.community+1}</span></div>
+      <div class="row"><span>Evidence status</span><span class="v">${d.corroborated?"MULTI-SOURCE":"FIR ONLY"}</span></div>
+    </div>
+    <div class="panel">
+      <div class="kicker">Why this score? (explainable AI)</div>
+      <div class="factor-block" style="margin-top:10px">
+        ${fbar("Network centrality",f.centrality_pct,"#48c5b3")}
+        ${fbar("Broker / bridge position",f.betweenness_pct,"#efb052")}
+        ${fbar("Source diversity",f.source_diversity_pct,"#8fa7df")}
+      </div>
+    </div>
+    <div class="panel"><div class="kicker">Evidence coverage</div><div class="badges" style="margin-top:9px">
+      ${["FIR","CDR","Bank","Surveillance","Social"].map(s=>`<span class="badge ${d.source_types.includes(s)?"ok":""}">${d.source_types.includes(s)?"✓":"—"} ${s}</span>`).join("")}
+    </div></div>
+    <div class="panel"><div class="kicker">Linked records</div>
+      ${recs.slice(0,6).map(r=>`<div class="row"><span>${r.id}</span><span class="v">${r.source}</span></div>`).join("")}
+    </div>
+    <div class="panel"><div class="kicker">Connections</div>
+      ${conns.slice(0,10).map(c=>{
+        const sid=typeof c.source==="object"?c.source.id:c.source, tid=typeof c.target==="object"?c.target.id:c.target;
+        const other=sid===d.id?tid:sid;
+        return `<div class="row"><span>${esc(other)}</span><span class="v">${c.weight} pts · ${c.confidence==="verified"?"✓ verified":"single-source"}</span></div>`
+      }).join("")}
+    </div>`;
+}
+function renderPlayers(){
+  playerBody.innerHTML=`<div class="panel"><div class="kicker">Network summary</div><div class="value">${DATA.num_communities}</div><div class="muted" style="font-size:10px">distinct communities detected</div></div>`+
+  DATA.top_influencers.map((n,i)=>`<div class="person-rank" onclick="jumpTo('${escapeAttr(n.id)}')">
+    <div class="rankline"><span>RANK #${i+1} · ${n.role.toUpperCase()}</span><span>${(n.influence*100).toFixed(0)}/100</span></div>
+    <h4>${esc(n.id)}</h4><p>${why(n)}</p><div class="bar"><i style="width:${(n.influence*100)}%"></i></div>
+  </div>`).join("");
+}
+function why(n){
+  if(n.is_bridge) return "Bridge entity: removing this node would split the network. Priority investigation candidate.";
+  if(n.betweenness>.3) return "High betweenness: sits on many shortest paths between other entities.";
+  if(n.degree>=4) return "Network hub with multiple direct links across records.";
+  return "Connected entity with meaningful network participation.";
+}
+function renderAlerts(){
+  const leads=DATA.alerts.filter(a=>a.severity==="lead"), caut=DATA.alerts.filter(a=>a.severity==="caution");
+  alertBody.innerHTML=`<div class="panel"><div class="kicker">Investigation leads</div>${leads.length?leads.map(alertCard).join(""):`<div class="muted">None</div>`}</div>
+  <div class="panel"><div class="kicker">Reliability cautions</div>${caut.length?caut.map(alertCard).join(""):`<div class="muted">None</div>`}</div>`;
+}
+function alertCard(a,i){
+  return `<div class="alert ${a.severity}" onclick="openAlert(${DATA.alerts.indexOf(a)})">
+    <div class="title">${esc(a.title)}</div>
+    <div class="meta">${esc(a.category)} · ${esc(a.metric||"")} · ${esc((a.source_types||[]).join(" + "))}</div>
+    <p>${esc(a.explanation)}</p>
+  </div>`;
+}
+function openAlert(i){
+  const a=DATA.alerts[i];
+  const n=DATA.nodes.find(x=>a.entities?.includes(x.id));
+  if(n){selected=n;renderInspector(n);tab("inspect",document.querySelector(".tab"));centerOn(n)}
+}
+function centerOn(n){
+  if(!sim)return;
+  n.fx=document.getElementById("graph").clientWidth/2;n.fy=document.getElementById("graph").clientHeight/2;sim.alpha(.6).restart();
+  setTimeout(()=>{n.fx=null;n.fy=null},700);
+}
+function jumpTo(id){
+  const n=DATA.nodes.find(x=>x.id===id); if(n){selected=n;renderInspector(n);tab("inspect",document.querySelector(".tab"));centerOn(n)}
+}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function escapeAttr(s){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
+
+/* ---- Timeline tab (temporal intelligence) ---- */
+function renderTimeline(){
+  const body=document.getElementById("timelineBody");
+  const sorted=[...RECORDS].filter(r=>r.timestamp).sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+  if(!sorted.length){ body.innerHTML='<div class="panel muted">No timestamped records for this case.</div>'; return; }
+  body.innerHTML=sorted.map(r=>{
+    const d=new Date(r.timestamp);
+    const when=d.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" · "+d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
+    return `<div class="timeline-item"><div class="timeline-time">${when} · <span class="badge">${r.source}</span> ${esc(r.id)}</div><div>${esc(r.text.length>130?r.text.slice(0,130)+"…":r.text)}</div></div>`;
+  }).join("");
+}
+
+/* ---- Case Management view ---- */
+async function loadCaseManagement(){
+  const wrap=document.getElementById("caseMgmtBody");
+  wrap.innerHTML='<div class="muted">Loading cases…</div>';
+  try{
+    const d=await getJSON("/api/cases");
+    const cards=await Promise.all(d.cases.map(async c=>{
+      const s=await getJSON("/api/case-summary?case_id="+encodeURIComponent(c.id));
+      const srcHtml=Object.entries(s.sources).map(([k,v])=>`<div class="source"><b>${k}</b><span>${v} records</span></div>`).join("");
+      const total=Object.values(s.sources).reduce((a,b)=>a+b,0);
+      return `<div class="case-mgmt-card">
+        <div class="kicker">${esc(c.id)}${c.id===currentCaseId?' · <span style="color:var(--teal)">ACTIVE CASE</span>':''}</div>
+        <h2>${esc(s.title)}</h2>
+        <div class="muted" style="font-size:10.5px;margin-bottom:4px">${total} records total</div>
+        <div class="muted" style="font-size:11px;margin-bottom:10px">${esc(s.objective)}</div>
+        <div class="source-grid">${srcHtml}</div>
+        <button class="secondary" style="margin-top:12px;width:auto;padding:8px 14px" onclick="switchCaseFromMgmt('${escapeAttr(c.id)}')" ${c.id===currentCaseId?"disabled":""}>${c.id===currentCaseId?"Currently active":"Switch to this case"}</button>
+      </div>`;
+    }));
+    wrap.innerHTML=cards.join("");
+  }catch(e){ wrap.innerHTML=`<div class="muted">Failed to load cases: ${esc(e.message)}</div>`; }
+}
+async function switchCaseFromMgmt(caseId){
+  document.getElementById("caseSelect").value=caseId;
+  await switchCase(caseId);
+  showView("investigation");
+}
+
+/* ---- Cross-case entity linking (now a page section, still audited as CROSS_CASE_SCAN) ---- */
+async function runCrossCaseScan(){
+  const box=document.getElementById("crossCaseResults");
+  box.innerHTML='<div class="muted">Scanning…</div>';
+  try{
+    const d=await getJSON("/api/cross-case-links",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({case_ids:["CASE-A","CASE-B"]})});
+    const shared=d.shared_entities||[];
+    box.innerHTML=`<div class="panel" style="padding:0"><div class="kicker" style="margin-bottom:8px">⇄ Cross-case scan results</div>
+      ${shared.length?shared.map(s=>`<div class="row" style="display:block;padding:10px 0"><b>${esc(s.entity)}</b> <span class="muted">(${esc(s.type)})</span><div class="muted" style="font-size:10px;margin-top:3px">Appears in: ${esc(s.cases.join(" + "))} · records: ${esc(s.records.join(", "))}</div></div>`).join("")
+        : '<div class="muted">No shared entities found between the checked cases.</div>'}
+    </div>`;
+    await refreshAudit();
+  }catch(e){ box.innerHTML=`<div class="muted">Error: ${esc(e.message)}</div>`; }
+}
+
+/* ---- Audit & Security view ---- */
+function gatedNotice(){
+  return `<div class="gated">Sign in as district_admin or state_admin to view this.<br><button class="secondary" style="margin-top:8px;width:auto;padding:6px 12px" onclick="showLogin()">Sign in</button></div>`;
+}
+async function loadAuditView(){
+  try{
+    const sec=await getJSON("/api/security/status");
+    document.getElementById("auditSecurityList").innerHTML=`
+      <div class="security-line"><span>RBAC</span><span class="${sec.rbac?'true':'false'}">${sec.rbac?'ENABLED':'OFF'}</span></div>
+      <div class="security-line"><span>Hash-chain audit</span><span class="true">ENABLED</span></div>
+      <div class="security-line"><span>Encryption helper</span><span class="true">ENABLED</span></div>
+      <div class="security-line"><span>Neo4j</span><span class="false">ROADMAP</span></div>
+      <div class="security-line"><span>Multilingual NER</span><span class="false">ROADMAP</span></div>
+      <div class="security-line"><span>ML anomaly model</span><span class="false">ROADMAP</span></div>`;
+  }catch(e){}
+  await refreshAuditFull();
+}
+async function refreshAuditFull(){
+  const verifyBox=document.getElementById("auditVerifyBox");
+  const tableBox=document.getElementById("auditTableBox");
+  try{
+    const v=await getJSON("/api/audit/verify");
+    verifyBox.innerHTML=`<div class="audit-ok">✓ HASH CHAIN ${v.valid?"VALID":"BROKEN"} · ${v.records_checked} EVENTS</div>`;
+  }catch(e){ verifyBox.innerHTML=gatedNotice(); }
+  try{
+    const d=await getJSON("/api/audit?limit=100");
+    const rows=d.records||[];
+    tableBox.innerHTML=rows.length?`<table class="audit-table"><tr><th>Time</th><th>Username</th><th>Role</th><th>Action</th><th>Details</th></tr>
+      ${rows.map(r=>`<tr><td>${esc(r.timestamp)}</td><td>${esc(r.username)}</td><td>${esc(r.role)}</td><td>${esc(r.action)}</td><td style="color:#9aa7b1">${esc(JSON.stringify(r.details||{}))}</td></tr>`).join("")}
+    </table>` : '<div class="muted">No audit events yet.</div>';
+  }catch(e){ tableBox.innerHTML=gatedNotice(); }
+}
+async function runEncryptDemo(){
+  const val=document.getElementById("encInput").value;
+  const box=document.getElementById("encryptDemoResult");
+  if(!val){ box.textContent="Type a value first."; return; }
+  try{
+    const enc=await getJSON("/api/security/encrypt-demo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:val})});
+    const dec=await getJSON("/api/security/decrypt-demo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:enc.encrypted})});
+    const match=dec.decrypted===val;
+    box.innerHTML=`Ciphertext: <span style="color:var(--teal)">${esc(enc.encrypted)}</span><br>Decrypted: <span style="color:${match?'var(--teal)':'#ef8c93'}">${esc(dec.decrypted)}</span> ${match?"✓ matches original":"✗ mismatch"}`;
+    await refreshAuditFull();
+  }catch(e){ box.innerHTML=gatedNotice(); }
+}
+
+/* ---- Investigation report (audited server-side, rendered client-side) ---- */
+let REPORT_HISTORY=[]; // client-side only, in-memory for this session
+
+function buildReportHTML(caseId,data,records,generatedAt){
+  const infl=data.top_influencers||[];
+  const alerts=data.alerts||[];
+  return `<html><head><title>VIGIL Report — ${caseId}</title>
+  <style>
+    body{font-family:Georgia,serif;max-width:760px;margin:40px auto;color:#111;line-height:1.6}
+    h1{font-size:22px;border-bottom:3px solid #111;padding-bottom:8px}
+    h2{font-size:15px;margin-top:26px;text-transform:uppercase;letter-spacing:1px;color:#333}
+    .meta{color:#666;font-size:12px;margin-bottom:18px}
+    .item{border-left:3px solid #999;padding:8px 14px;margin:10px 0;background:#f7f7f7}
+    .lead{border-color:#c0392b}.caution{border-color:#e67e22}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    td,th{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left}
+    @media print{button{display:none}}
+  </style></head><body>
+  <h1>VIGIL — Investigation Report</h1>
+  <div class="meta">Case: ${caseId} · Generated by ${USER.username} (${USER.role}) · ${generatedAt.toLocaleString()} · Records: ${records.length} · Communities: ${data.num_communities}</div>
+  <button onclick="window.print()">Print / Save as PDF</button>
+  <h2>Top Influencers / Key Players</h2>
+  <table><tr><th>Rank</th><th>Entity</th><th>Role</th><th>Influence</th></tr>
+    ${infl.map((n,i)=>`<tr><td>#${i+1}</td><td>${n.id}</td><td>${n.role}</td><td>${(n.influence*100).toFixed(0)}/100</td></tr>`).join("")}
+  </table>
+  <h2>Alerts &amp; Suspicious Patterns (${alerts.length})</h2>
+  ${alerts.map(a=>`<div class="item ${a.severity==='caution'?'caution':'lead'}"><b>${a.title}</b><br>${a.text}</div>`).join("")||"<p>No alerts.</p>"}
+  <h2>Network Summary</h2>
+  <p>${data.nodes.length} entities, ${data.links.length} relationships across ${data.num_communities} distinct clusters. This report was logged in the tamper-evident audit chain.</p>
+  </body></html>`;
+}
+function openReportWindow(snap){
+  const w=window.open("","_blank");
+  w.document.write(buildReportHTML(snap.caseId,snap.data,snap.records,snap.generatedAt));
+  w.document.close();
+}
+function renderReportHistory(){
+  const box=document.getElementById("reportHistoryBox");
+  if(!box) return;
+  if(!REPORT_HISTORY.length){ box.innerHTML='<div class="muted">No reports generated this session yet.</div>'; return; }
+  box.innerHTML=REPORT_HISTORY.map((snap,i)=>`<div class="row"><span>${snap.generatedAt.toLocaleString()} · ${esc(snap.caseId)}</span><span class="v"><a href="#" onclick="openReportWindow(REPORT_HISTORY[${i}]);return false;" style="color:var(--teal)">Reopen ↗</a></span></div>`).join("");
+}
+async function generateReport(){
+  if(!DATA){ alert("Run the investigation first."); return; }
+  try{
+    await getJSON("/api/report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({case_id:currentCaseId})});
+    await refreshAudit();
+  }catch(e){ /* audit log is a nice-to-have; still show the report if it fails */ }
+  const snap={caseId:currentCaseId,data:DATA,records:RECORDS,generatedAt:new Date()};
+  REPORT_HISTORY.unshift(snap);
+  renderReportHistory();
+  openReportWindow(snap);
+}
+
+/* ---- Ask box: rule-based Q&A over the already-computed graph (no LLM call) ---- */
+function askQuestion(){
+  const input=document.getElementById("askInput");
+  const q=input.value.trim();
+  if(!q) return;
+  const qLower=q.toLowerCase();
+  let answer="I couldn't match that to the current case data. Try an entity name, 'top influencers', 'alerts', or 'clusters'.";
+
+  if(!DATA){
+    answer="Run the full investigation first so there's a graph to answer questions about.";
+  } else if(qLower.includes("top influencer")||qLower.includes("key player")){
+    answer="Top players: "+DATA.top_influencers.map(n=>n.id).join(", ")+".";
+  } else if(qLower.includes("alert")||qLower.includes("suspicious")){
+    answer=DATA.alerts.length ? `${DATA.alerts.length} alert(s). Top one: "${DATA.alerts[0].title}" — ${DATA.alerts[0].text}` : "No alerts found.";
+  } else if(qLower.includes("cluster")||qLower.includes("communit")){
+    answer=`NetworkX found ${DATA.num_communities} distinct clusters in this case.`;
+  } else if(qLower.includes("connected to")||qLower.includes("who is")){
+    const match=DATA.nodes.find(n=>qLower.includes(n.id.toLowerCase()));
+    if(match){
+      const conns=DATA.links.filter(l=>{const sid=l.source.id||l.source,tid=l.target.id||l.target;return sid===match.id||tid===match.id;});
+      const names=conns.map(l=>{const sid=l.source.id||l.source,tid=l.target.id||l.target;return sid===match.id?tid:sid;});
+      answer=names.length?`'${match.id}' is directly connected to: ${names.join(", ")}.`:`'${match.id}' has no direct connections yet.`;
+    }
+  } else {
+    const match=DATA.nodes.find(n=>qLower.includes(n.id.toLowerCase()));
+    if(match) answer=`'${match.id}' (${match.type}) — influence ${(match.influence*100).toFixed(0)}/100, ${match.degree} direct connections, role: ${match.role}.`;
+  }
+
+  tab("inspect",document.querySelector(".tab"));
+  const box=document.createElement("div");
+  box.className="ask-answer";
+  box.innerHTML=`<b>Q:</b> ${esc(q)}<br><b>A:</b> ${esc(answer)}`;
+  document.getElementById("inspectBody").prepend(box);
+  input.value="";
+}
+
+boot().catch(e=>console.error(e));
+</script>
+</body>
+</html>
